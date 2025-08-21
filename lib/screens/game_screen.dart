@@ -1,3 +1,4 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:ultimate_tic_tac_toe_flutter/models/board_model.dart';
 import 'package:ultimate_tic_tac_toe_flutter/models/player_model.dart';
@@ -18,6 +19,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   PlayerModel currentPlayer = PlayerModel(symbol: 'X');
   late AnimationController _controller;
   late Map arguments;
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  final AudioCache _audioCache = AudioCache(prefix: 'assets/sounds/');
 
   int player1Score = 0;
   int player2Score = 0;
@@ -50,15 +53,24 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     });
   }
 
+  void _playSound(String soundPath) async {
+  await _audioCache.play(soundPath);
+}
+
   void _handleTap(int cellRow, int cellCol) {
     if (board.cells[cellRow][cellCol] == null) {
       setState(() {
         board.makeMove(cellRow, cellCol, currentPlayer.symbol);
+        _playSound('tap.mp3');
         if (board.checkMiniBoardWin(cellRow ~/ 3, cellCol ~/ 3, currentPlayer.symbol)) {
           _animateSmallBoardWin(cellRow ~/ 3, cellCol ~/ 3, currentPlayer.symbol);
         }
         if (board.checkBigBoardWin(currentPlayer.symbol)) {
+          _playSound('win.mp3');
           _animateBigBoardWin(currentPlayer.symbol);
+        } else if (board.checkDraw()) {
+          _playSound('draw.mp3');
+          _showDrawDialog();
         }
         currentPlayer = currentPlayer.symbol == 'X'
             ? PlayerModel(symbol: 'O')
@@ -72,7 +84,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   }
 
   void _playComputerMove(String level) {
-    Future.delayed(Duration(milliseconds: 500), () {
+    Future.delayed(Duration(milliseconds: 300), () {
       setState(() {
         List<List<int>> availableMoves = [];
         for (int i = 0; i < 9; i++) {
@@ -143,7 +155,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         board.miniBoardWinners[miniRow][miniCol] = symbol;
         for (int i = miniRow * 3; i < miniRow * 3 + 3; i++) {
           for (int j = miniCol * 3; j < miniCol * 3 + 3; j++) {
-            board.cells[i][j] = symbol;
+            board.cells[i][j] = null; // Clear the small squares
           }
         }
       });
@@ -163,6 +175,27 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         return AlertDialog(
           title: Text('$winner Wins!'),
           content: Text('Congratulations!'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _resetBoard();
+              },
+              child: Text('Play Again'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showDrawDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('It\'s a Draw!'),
+          content: Text('Try again!'),
           actions: [
             TextButton(
               onPressed: () {
@@ -238,50 +271,50 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
                 return Container(
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.black),
-                    color: board.miniBoardWinners[bigRow][bigCol] == 'X'
-                        ? Colors.blue.withOpacity(0.3)
-                        : board.miniBoardWinners[bigRow][bigCol] == 'O'
-                            ? Colors.red.withOpacity(0.3)
-                            : Colors.grey.withOpacity(0.1),
+                    border: Border.all(color: Colors.black, width: 2),
                   ),
-                  child: GridView.builder(
-                    padding: EdgeInsets.all(4.0),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      childAspectRatio: 1,
-                      crossAxisSpacing: 4.0,
-                      mainAxisSpacing: 4.0,
-                    ),
-                    itemCount: 9,
-                    itemBuilder: (context, smallIndex) {
-                      int smallRow = smallIndex ~/ 3;
-                      int smallCol = smallIndex % 3;
-                      int cellRow = bigRow * 3 + smallRow;
-                      int cellCol = bigCol * 3 + smallCol;
+                  child: board.miniBoardWinners[bigRow][bigCol] != null
+                      ? Center(
+                          child: Image.asset(
+                            board.miniBoardWinners[bigRow][bigCol] == 'X'
+                                ? 'assets/images/x.png'
+                                : 'assets/images/o.png',
+                            fit: BoxFit.contain,
+                          ),
+                        )
+                      : GridView.builder(
+                          padding: EdgeInsets.all(4.0),
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            childAspectRatio: 1,
+                            crossAxisSpacing: 4.0,
+                            mainAxisSpacing: 4.0,
+                          ),
+                          itemCount: 9,
+                          itemBuilder: (context, smallIndex) {
+                            int smallRow = smallIndex ~/ 3;
+                            int smallCol = smallIndex % 3;
+                            int cellRow = bigRow * 3 + smallRow;
+                            int cellCol = bigCol * 3 + smallCol;
 
-                      return GestureDetector(
-                        onTap: () => _handleTap(cellRow, cellCol),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            border: Border.all(color: Colors.black),
-                            borderRadius: BorderRadius.circular(4.0),
-                          ),
-                          child: Center(
-                            child: board.cells[cellRow][cellCol] == null
-                                ? null
-                                : Image.asset(
-                                    board.cells[cellRow][cellCol] == 'X'
-                                        ? 'assets/images/x.png'
-                                        : 'assets/images/o.png',
-                                    fit: BoxFit.contain,
-                                  ),
-                          ),
+                            return GestureDetector(
+                              onTap: () => _handleTap(cellRow, cellCol),
+                              child: Container(
+                                color: Colors.white,
+                                child: Center(
+                                  child: board.cells[cellRow][cellCol] == null
+                                      ? null
+                                      : Image.asset(
+                                          board.cells[cellRow][cellCol] == 'X'
+                                              ? 'assets/images/x.png'
+                                              : 'assets/images/o.png',
+                                          fit: BoxFit.contain,
+                                        ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
                 );
               },
             ),
