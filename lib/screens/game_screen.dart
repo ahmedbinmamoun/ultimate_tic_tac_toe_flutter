@@ -141,6 +141,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     _controller.forward(from: 0).then((_) {
       setState(() {
         board.miniBoardWinners[miniRow][miniCol] = symbol;
+        for (int i = miniRow * 3; i < miniRow * 3 + 3; i++) {
+          for (int j = miniCol * 3; j < miniCol * 3 + 3; j++) {
+            board.cells[i][j] = symbol;
+          }
+        }
       });
     });
   }
@@ -174,6 +179,13 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   void _animateBigBoardWin(String symbol) {
     _controller.forward(from: 0).then((_) {
+      setState(() {
+        for (int i = 0; i < 9; i++) {
+          for (int j = 0; j < 9; j++) {
+            board.cells[i][j] = symbol;
+          }
+        }
+      });
       _showWinDialog(symbol == 'X' ? 'Player 1' : 'Player 2');
     });
   }
